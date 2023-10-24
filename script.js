@@ -72,18 +72,30 @@ const inputLoanAmount = document.querySelector('.form__input--loan-amount');
 const inputCloseUsername = document.querySelector('.form__input--user');
 const inputClosePin = document.querySelector('.form__input--pin');
 
-const displayMovements = function (movements, sort = false) {
+const fullDate = date => {
+  const day = `${date.getDate()}`.padStart(2, 0);
+  const month = `${date.getMonth() + 1}`.padStart(2, 0);
+  const year = date.getFullYear();
+  const hour = `${date.getHours()}`.padStart(2, 0);
+  const minutes = `${date.getMinutes()}`.padStart(2, 0);
+  return `${day}/${month}/${year}, ${hour}:${minutes}`;
+};
+const displayMovements = function (account, sort = false) {
   containerMovements.innerHTML = '';
-  const movs = sort ? movements.slice().sort((a, b) => a - b) : movements;
-  movs.forEach(function (el, key) {
-    let type;
-    type = el < 0 ? 'withdrawal' : 'deposit';
+  const movs = sort
+    ? account.movements.slice().sort((a, b) => a - b)
+    : account.movements;
+  movs.forEach(function (mov, key) {
+    const date = new Date(account.movementsDates[key]);
+    const updatedMov = new Intl.NumberFormat(account.locale).format(mov);
+    const displayDate = fullDate(date);
+    let type = mov < 0 ? 'withdrawal' : 'deposit';
     const html = `<div class="movements__row">
           <div class="movements__type movements__type--${type}">${
       key + 1
     } ${type}</div>
-          <div class="movements__date">3 days ago</div>
-          <div class="movements__value">${el}€</div>
+          <div class="movements__date">${displayDate}</div>
+          <div class="movements__value">${updatedMov}€</div>
         </div>`;
     containerMovements.insertAdjacentHTML('afterbegin', html);
   });
@@ -101,6 +113,7 @@ const currencies = new Map([
 
 const movements = [200, 450, -400, 3000, -650, -130, 70, 1300];
 let currentUser;
+
 /////////////////////////////////////////////////
 
 // Creating usernames for every account
@@ -115,13 +128,54 @@ const createUserNames = accs => {
 };
 
 const calcDisplayBalance = acc => {
-  acc.balance = acc.movements.reduce((acc, cur) => acc + cur, 0);
+  acc.balance = new Intl.NumberFormat(acc.locale).format(
+    acc.movements.reduce((acc, cur) => acc + cur, 0)
+  );
   labelBalance.textContent = `${acc.balance}€`;
 };
 const updateUI = account => {
-  displayMovements(account.movements);
+  // Experimenting with the API
+
+  const now = new Date();
+  const options = {
+    hour: 'numeric',
+    minute: 'numeric',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  };
+
+  labelDate.textContent = new Intl.DateTimeFormat(
+    account.locale,
+    options
+  ).format(now);
+
+  // labelDate.textContent = fullDate(now);
+  displayMovements(account);
   calcDisplayBalance(account);
   calcDisplaySummary(account);
+};
+
+const startLogOutTimer = () => {
+  const tick = function () {
+    const min = String(Math.trunc(time / 60)).padStart(2, 0);
+    const seconds = String(time % 60).padStart(2, 0);
+    //in each call ,print the remaining time to the user interface
+    labelTimer.textContent = `${min}:${seconds}`;
+
+    if (time === 0) {
+      clearInterval(timer);
+      labelWelcome.textContent = 'Login to get started';
+      containerApp.style.opacity = 0;
+    }
+    time--;
+  };
+  //Set time to 5 minutes
+  let time = 300;
+  // call the timer every second
+  tick();
+  const timer = setInterval(tick, 1000);
+  //when 0 seconds log out
 };
 const calcDisplaySummary = acc => {
   const totalDepositUSD = acc.movements
@@ -155,6 +209,7 @@ btnLogin.addEventListener('click', e => {
     containerApp.style.opacity = 1;
     updateUI(account);
     currentUser = account;
+    startLogOutTimer();
   }
 });
 
@@ -171,7 +226,9 @@ btnTransfer.addEventListener('click', e => {
     receiverAcc.userName !== currentUser.userName
   ) {
     receiverAcc.movements.push(amount);
+    receiverAcc.movementsDates.push(new Date());
     currentUser.movements.push(-1 * amount);
+    currentUser.movementsDates.push(new Date());
     updateUI(currentUser);
   }
 });
@@ -180,10 +237,13 @@ btnLoan.addEventListener('click', e => {
   e.preventDefault();
   const amount = +inputLoanAmount.value;
   if (amount > 0 && currentUser.movements.some(el => el >= amount * 0.1)) {
-    currentUser.movements.push(amount);
-    updateUI(currentUser);
-    inputLoanAmount.value = '';
+    setTimeout(function () {
+      currentUser.movements.push(amount);
+      currentUser.movementsDates.push(new Date());
+      updateUI(currentUser);
+    }, 3000);
   }
+  inputLoanAmount.value = '';
 });
 
 btnClose.addEventListener('click', e => {
@@ -206,11 +266,20 @@ let sorted = false;
 btnSort.addEventListener('click', e => {
   e.preventDefault();
   sorted = !sorted;
-  displayMovements(currentUser.movements, sorted);
+  displayMovements(currentUser, sorted);
 });
 
-function reverseArray(a) {
-  return a.reverse();
-}
+/// Lectures
 
-console.log(reverseArray([1, 2, 3, 4]));
+// const ingredients = ['olives', 'spinach'];
+
+// const pizzaTimer = setTimeout(
+//   (ing1, ing2) => console.log(`here is your pizza with ${ing1}, ${ing2}`),
+//   3000,
+//   ...ingredients
+// );
+// setInterval(console.log('Test'), 1000);
+
+// if (ingredients.includes('spinach')) clearTimeout(pizzaTimer);
+
+//setTimeout
